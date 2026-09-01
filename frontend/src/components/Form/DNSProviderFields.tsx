@@ -1,6 +1,6 @@
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { Field, useFormikContext } from "formik";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Select, { type ActionMeta } from "react-select";
 import type { DNSProvider } from "src/api/backend";
 import { getDnsCredential } from "src/api/backend";
@@ -34,25 +34,33 @@ export function DNSProviderFields({ showBoundaryBox = false }: Props) {
 	const [dnsProviderId, setDnsProviderId] = useState<string | null>(null);
 	const [savedCreds, setSavedCreds] = useState<SavedCredentialOption | null>(null);
 	const [isFetchingSavedCredential, setIsFetchingSavedCredential] = useState(false);
+	// Bumped on every provider or saved-credential change, so a credential fetch
+	// that resolves after the user has moved on can tell it is stale and skip
+	// writing its (now wrong) result into the form.
+	const fetchTokenRef = useRef(0);
 
 	const v: any = values || {};
 
 	const handleChange = (newValue: any, _actionMeta: ActionMeta<DNSProviderOption>) => {
+		fetchTokenRef.current += 1;
 		void setFieldValue("meta.dnsProvider", newValue?.value);
 		void setFieldValue("meta.dnsProviderCredentials", newValue?.credentials);
 		setSavedCreds(null);
 		setDnsProviderId(newValue?.value);
+		setIsFetchingSavedCredential(false);
 	};
 
 	const handleSavedCredentialChange = async (
 		newValue: SavedCredentialOption | null,
 		_actionMeta: ActionMeta<SavedCredentialOption>,
 	) => {
+		const token = ++fetchTokenRef.current;
 		setSavedCreds(newValue);
 
 		if (!newValue) {
 			// Clearing the selection falls back to the providers credentials
 			// template rather than leaving the user with an empty box.
+			setIsFetchingSavedCredential(false);
 			const providerTemplate = dnsProviders?.find((p: DNSProvider) => p.id === dnsProviderId)?.credentials ?? "";
 			void setFieldValue("meta.dnsProviderCredentials", providerTemplate);
 			return;
@@ -64,9 +72,16 @@ export function DNSProviderFields({ showBoundaryBox = false }: Props) {
 		setIsFetchingSavedCredential(true);
 		try {
 			const credential = await getDnsCredential(newValue.value);
+			if (fetchTokenRef.current !== token) {
+				// The provider or selection changed while this was in flight;
+				// applying it now would overwrite what the user picked instead.
+				return;
+			}
 			void setFieldValue("meta.dnsProviderCredentials", credential.credentials ?? "");
 		} finally {
-			setIsFetchingSavedCredential(false);
+			if (fetchTokenRef.current === token) {
+				setIsFetchingSavedCredential(false);
+			}
 		}
 	};
 
