@@ -119,7 +119,9 @@ const internalDnsCredentials = {
 
 		const row = await internalDnsCredentials.get(access, { id: data.id });
 
-		await dnsCredentialsModel.query().where("id", row.id).patch({ is_deleted: 1 });
+		// Soft delete keeps the row, but there is no reason to keep the secret with
+		// it: every query filters on is_deleted and the audit log never stores it.
+		await dnsCredentialsModel.query().where("id", row.id).patch({ is_deleted: 1, credentials: "" });
 
 		await internalAuditLog.add(access, {
 			action: "deleted",
