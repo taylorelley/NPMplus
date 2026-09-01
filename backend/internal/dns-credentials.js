@@ -94,7 +94,9 @@ const internalDnsCredentials = {
 				patch[field] = data[field];
 			}
 		}
-		await dnsCredentialsModel.query().where({ id: data.id }).patch(patch);
+		// Guard on is_deleted so a delete landing between the read above and this
+		// patch cannot write the credentials back onto an already deleted row.
+		await dnsCredentialsModel.query().where({ id: data.id, is_deleted: 0 }).patch(patch);
 
 		const row = await internalDnsCredentials.get(access, { id: data.id });
 
