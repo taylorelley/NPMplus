@@ -13,6 +13,31 @@ const router = express.Router({
 });
 
 /**
+ * Validates the :credential_id route param, so that a partially numeric value
+ * such as "1abc" is rejected instead of being parsed down to 1.
+ *
+ * @param   {String}  credentialId
+ * @returns {Promise<Number>}
+ */
+const validateCredentialId = async (credentialId) => {
+	const data = await validator(
+		{
+			required: ["credential_id"],
+			additionalProperties: false,
+			properties: {
+				credential_id: {
+					$ref: "common#/properties/id",
+				},
+			},
+		},
+		{
+			credential_id: credentialId,
+		},
+	);
+	return Number.parseInt(data.credential_id, 10);
+};
+
+/**
  * /api/nginx/dns-credentials
  */
 router
@@ -30,6 +55,8 @@ router
 	.get(async (req, res, next) => {
 		try {
 			const rows = await internalDnsCredentials.getAll(res.locals.access);
+			// The rows carry the stored credentials, keep them out of any cache
+			res.set("Cache-Control", "no-store");
 			res.status(200).send(rows);
 		} catch (err) {
 			debug(logger, `${req.method.toUpperCase()} ${req.originalUrl}: ${err}`);
@@ -72,23 +99,11 @@ router
 	 */
 	.get(async (req, res, next) => {
 		try {
-			const data = await validator(
-				{
-					required: ["credential_id"],
-					additionalProperties: false,
-					properties: {
-						credential_id: {
-							$ref: "common#/properties/id",
-						},
-					},
-				},
-				{
-					credential_id: req.params.credential_id,
-				},
-			);
 			const row = await internalDnsCredentials.get(res.locals.access, {
-				id: Number.parseInt(data.credential_id, 10),
+				id: await validateCredentialId(req.params.credential_id),
 			});
+			// The row carries the stored credentials, keep them out of any cache
+			res.set("Cache-Control", "no-store");
 			res.status(200).send(row);
 		} catch (err) {
 			debug(logger, `${req.method.toUpperCase()} ${req.originalUrl}: ${err}`);
@@ -104,7 +119,7 @@ router
 	.put(async (req, res, next) => {
 		try {
 			const payload = apiValidator(getValidationSchema("/nginx/dns-credentials/{credentialID}", "put"), req.body);
-			payload.id = Number.parseInt(req.params.credential_id, 10);
+			payload.id = await validateCredentialId(req.params.credential_id);
 			const result = await internalDnsCredentials.update(res.locals.access, payload);
 			res.status(200).send(result);
 		} catch (err) {
@@ -121,7 +136,7 @@ router
 	.delete(async (req, res, next) => {
 		try {
 			const result = await internalDnsCredentials.delete(res.locals.access, {
-				id: Number.parseInt(req.params.credential_id, 10),
+				id: await validateCredentialId(req.params.credential_id),
 			});
 			res.status(200).send(result);
 		} catch (err) {

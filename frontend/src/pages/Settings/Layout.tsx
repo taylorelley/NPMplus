@@ -42,7 +42,11 @@ export default function Layout() {
 						</div>
 					</div>
 					<div className="col-12 col-md-9 d-flex flex-column">
-						{activeTab === "default-site" && <DefaultSite />}
+						{/* DefaultSite stays mounted so switching tabs does not throw away
+						    unsaved edits; display:contents keeps the layout unchanged. */}
+						<div style={{ display: activeTab === "default-site" ? "contents" : "none" }}>
+							<DefaultSite />
+						</div>
 						{activeTab === "dns-credentials" && <DnsCredentials />}
 					</div>
 				</div>

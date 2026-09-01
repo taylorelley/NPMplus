@@ -37,7 +37,8 @@ const useSetDnsCredential = () => {
 			}));
 			return () => queryClient.setQueryData(["dns-credential", values.id], previousObject);
 		},
-		onError: (_, __, rollback: any) => rollback(),
+		// onMutate returns nothing when creating, so there is no rollback to run
+		onError: (_, __, rollback: any) => rollback?.(),
 		onSuccess: async ({ id }: DnsCredential) => {
 			await Promise.all([
 				queryClient.invalidateQueries({ queryKey: ["dns-credential", id] }),
