@@ -239,3 +239,15 @@ export interface DNSProvider {
 	name: string;
 	credentials: string;
 }
+
+export interface DnsCredential {
+	id: number;
+	createdOn?: string;
+	modifiedOn?: string;
+	ownerUserId?: number;
+	name: string;
+	providerId: string;
+	// Omitted from the list endpoint - only a single GET by id returns the
+	// stored secret, so the browser never has to hold every credential at once.
+	credentials?: string;
+}
