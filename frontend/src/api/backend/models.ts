@@ -239,3 +239,13 @@ export interface DNSProvider {
 	name: string;
 	credentials: string;
 }
+
+export interface DnsCredential {
+	id: number;
+	createdOn?: string;
+	modifiedOn?: string;
+	ownerUserId?: number;
+	name: string;
+	providerId: string;
+	credentials: string;
+}
