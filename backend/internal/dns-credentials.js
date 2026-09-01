@@ -5,6 +5,12 @@ import internalAuditLog from "./audit-log.js";
 
 const omissions = () => ["is_deleted", "owner.is_deleted"];
 
+// The list endpoint feeds a settings table and a "pick a saved credential"
+// dropdown; neither needs the secret itself, and shipping every stored
+// credential to the browser on every page load is needless exposure. Callers
+// that need the actual value fetch a single credential by id instead.
+const listOmissions = () => [...omissions(), "credentials"];
+
 /**
  * Audit log meta never contains the credentials themselves, they are secrets.
  *
@@ -150,7 +156,7 @@ const internalDnsCredentials = {
 			query.andWhere("owner_user_id", access.token.getUserId(1));
 		}
 
-		return utils.omitRows(omissions())(await query);
+		return utils.omitRows(listOmissions())(await query);
 	},
 };
 

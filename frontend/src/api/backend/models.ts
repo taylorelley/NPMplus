@@ -247,5 +247,7 @@ export interface DnsCredential {
 	ownerUserId?: number;
 	name: string;
 	providerId: string;
-	credentials: string;
+	// Omitted from the list endpoint - only a single GET by id returns the
+	// stored secret, so the browser never has to hold every credential at once.
+	credentials?: string;
 }

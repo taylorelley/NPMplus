@@ -25,8 +25,7 @@
 									"modified_on": "2024-10-09T05:32:11.000Z",
 									"owner_user_id": 1,
 									"name": "My Cloudflare Credentials",
-									"provider_id": "cloudflare",
-									"credentials": "***"
+									"provider_id": "cloudflare"
 								}
 							]
 						}

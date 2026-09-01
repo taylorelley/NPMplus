@@ -3,6 +3,7 @@ import { Field, useFormikContext } from "formik";
 import { useState } from "react";
 import Select, { type ActionMeta } from "react-select";
 import type { DNSProvider } from "src/api/backend";
+import { getDnsCredential } from "src/api/backend";
 import { useDnsCredentials, useDnsProviders, useUser } from "src/hooks";
 import { intl, T } from "src/locale";
 import styles from "./DNSProviderFields.module.css";
@@ -16,7 +17,6 @@ interface DNSProviderOption {
 interface SavedCredentialOption {
 	readonly value: number;
 	readonly label: string;
-	readonly credentials: string;
 }
 
 interface Props {
@@ -33,6 +33,7 @@ export function DNSProviderFields({ showBoundaryBox = false }: Props) {
 	});
 	const [dnsProviderId, setDnsProviderId] = useState<string | null>(null);
 	const [savedCreds, setSavedCreds] = useState<SavedCredentialOption | null>(null);
+	const [isFetchingSavedCredential, setIsFetchingSavedCredential] = useState(false);
 
 	const v: any = values || {};
 
@@ -43,12 +44,30 @@ export function DNSProviderFields({ showBoundaryBox = false }: Props) {
 		setDnsProviderId(newValue?.value);
 	};
 
-	const handleSavedCredentialChange = (newValue: any, _actionMeta: ActionMeta<SavedCredentialOption>) => {
+	const handleSavedCredentialChange = async (
+		newValue: SavedCredentialOption | null,
+		_actionMeta: ActionMeta<SavedCredentialOption>,
+	) => {
 		setSavedCreds(newValue);
-		// Clearing the selection falls back to the providers credentials template
-		// rather than leaving the user with an empty box.
-		const providerTemplate = dnsProviders?.find((p: DNSProvider) => p.id === dnsProviderId)?.credentials ?? "";
-		void setFieldValue("meta.dnsProviderCredentials", newValue?.credentials ?? providerTemplate);
+
+		if (!newValue) {
+			// Clearing the selection falls back to the providers credentials
+			// template rather than leaving the user with an empty box.
+			const providerTemplate = dnsProviders?.find((p: DNSProvider) => p.id === dnsProviderId)?.credentials ?? "";
+			void setFieldValue("meta.dnsProviderCredentials", providerTemplate);
+			return;
+		}
+
+		// The list endpoint never carries the stored secret, so fetch the one
+		// credential the admin picked instead of shipping every saved secret to
+		// the browser up front.
+		setIsFetchingSavedCredential(true);
+		try {
+			const credential = await getDnsCredential(newValue.value);
+			void setFieldValue("meta.dnsProviderCredentials", credential.credentials ?? "");
+		} finally {
+			setIsFetchingSavedCredential(false);
+		}
 	};
 
 	const options: DNSProviderOption[] =
@@ -65,7 +84,6 @@ export function DNSProviderFields({ showBoundaryBox = false }: Props) {
 			.map((cred) => ({
 				value: cred.id,
 				label: cred.name,
-				credentials: cred.credentials,
 			})) || [];
 	const showSavedCredentialsDropdown = Boolean(dnsProviderId) && savedCredentialOptions.length > 0;
 
@@ -112,6 +130,8 @@ export function DNSProviderFields({ showBoundaryBox = false }: Props) {
 								inputId="savedCredential"
 								closeMenuOnSelect={true}
 								isClearable={true}
+								isLoading={isFetchingSavedCredential}
+								isDisabled={isFetchingSavedCredential}
 								placeholder={intl.formatMessage({
 									id: "certificates.dns.saved-credentials.placeholder",
 								})}
